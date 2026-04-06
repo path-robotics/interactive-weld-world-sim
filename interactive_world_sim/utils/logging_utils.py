@@ -64,6 +64,25 @@ def log_video(
         logger = wandb
     if observation_gt is None:
         observation_gt = torch.zeros_like(observation_hat)
+
+    n_channels = observation_hat.shape[2]
+
+    # For non-RGB data (e.g., 1-channel SDF), convert to 3-channel via colormap
+    if n_channels != 3:
+        def _to_rgb(tensor: torch.Tensor) -> torch.Tensor:
+            # Apply RdBu_r colormap: (F, B, 1, H, W) -> (F, B, 3, H, W)
+            arr = tensor.detach().cpu().numpy()
+            # Squeeze channel dim, apply colormap, take RGB channels
+            arr_2d = arr[:, :, 0]  # (F, B, H, W)
+            colored = plt.cm.RdBu_r(arr_2d)[..., :3]  # (F, B, H, W, 3)
+            colored = np.transpose(colored, (0, 1, 4, 2, 3))  # (F, B, 3, H, W)
+            return torch.from_numpy(colored.astype(np.float32))
+
+        observation_hat = _to_rgb(observation_hat)
+        observation_gt = _to_rgb(observation_gt)
+        if goal is not None:
+            goal = _to_rgb(goal)
+
     # Add red border of 1 pixel width to the context frames
     for i, c in enumerate(color):
         c_normalized = float(c) / 255.0
@@ -129,6 +148,12 @@ def get_validation_metrics_for_videos(
 
     if frame < 9:
         fvd_model = None  # FVD requires at least 9 frames
+
+    # LPIPS, FID, and FVD require 3-channel (RGB) images
+    if channel != 3:
+        lpips_model = None
+        fid_model = None
+        fvd_model = None
 
     if fvd_model is not None:
         output_dict["fvd"] = fvd_model.compute(

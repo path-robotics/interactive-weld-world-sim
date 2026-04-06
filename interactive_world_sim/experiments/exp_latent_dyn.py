@@ -6,6 +6,7 @@ from interactive_world_sim.algorithms.latent_dynamics import LatentWorldModel
 from interactive_world_sim.datasets.latent_dynamics import (
     RealAlohaDataset,
     SimAlohaDataset,
+    WeldDepositionDataset,
 )
 
 from .exp_base import BaseLightningExperiment
@@ -21,6 +22,7 @@ class LatentDynExperiment(BaseLightningExperiment):
     compatible_datasets = dict(
         sim_aloha_dataset=SimAlohaDataset,
         real_aloha_dataset=RealAlohaDataset,
+        weld_deposition_dataset=WeldDepositionDataset,
     )
 
     def _build_dataset(self, split: str) -> Optional[torch.utils.data.Dataset]:

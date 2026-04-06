@@ -58,6 +58,7 @@ rospkg==1.6.0
 rotary_embedding_torch==0.8.6
 ruamel.yaml==0.17.4
 sapien==2.2.2
+scipy==1.14.1
 scope==0.6.3
 sentencepiece==0.2.1
 serial==0.0.97

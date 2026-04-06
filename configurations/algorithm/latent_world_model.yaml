@@ -12,7 +12,7 @@ enc_dim: 64
 num_components: 1
 obs_keys: ${dataset.obs_keys}
 x_shape:
-  - ${eval:'3 * len(${dataset.obs_keys})'}
+  - ${eval:'${dataset.channels_per_obs} * len(${dataset.obs_keys})'}
   - ${dataset.resolution}
   - ${dataset.resolution}
 norm_scale: 6.0

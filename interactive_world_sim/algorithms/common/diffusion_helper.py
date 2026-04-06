@@ -17,6 +17,7 @@ def render_img(
     resolution: int,
     normalizer: LinearNormalizer,
     num_views: int = 1,
+    channels_per_view: int = 3,
 ) -> torch.Tensor:
     """Render an image conditioned on the latent state.
 
@@ -26,17 +27,19 @@ def render_img(
         resolution: The resolution of the rendered image.
         normalizer: The normalizer to use for rendering.
         num_views: The number of views to render.
+        channels_per_view: Number of channels per observation view.
 
     Returns:
-        torch.Tensor: The rendered image in shape of (B, 3, resolution, resolution)
+        torch.Tensor: The rendered image in shape of (B, C, resolution, resolution)
     """
+    cpv = channels_per_view
     assert latent.ndim in [2, 4], "Latent state must have shape (B, D) or (B, C, H, W)"
 
     # create diffusion related variables
     schedules = np.arange(algo.sampling_timesteps, -1, -1)
     schedules = torch.from_numpy(schedules).to(algo.device)
 
-    xs_pred = torch.randn(latent.shape[0], 3 * num_views, resolution, resolution)
+    xs_pred = torch.randn(latent.shape[0], cpv * num_views, resolution, resolution)
     xs_pred = xs_pred.to(device=algo.device, dtype=algo.dtype)
     batch_size = 50
     for i in range(algo.sampling_timesteps):
@@ -54,12 +57,12 @@ def render_img(
     # unnormalize xs and xs_pred and reorgnize them along B axis
     xs_pred_ls = []
     for c_i in range(num_views):
-        curr_xs_pred = xs_pred[:, 3 * c_i : 3 * c_i + 3]
+        curr_xs_pred = xs_pred[:, cpv * c_i : cpv * (c_i + 1)]
         curr_obs_key = algo.obs_keys[c_i]
         xs_pred_ls.append(normalizer[curr_obs_key].unnormalize(curr_xs_pred))
-    xs_pred = torch.cat(xs_pred_ls, dim=1)  # (T, B * V, 3, H, W)
-    assert xs_pred.shape == (latent.shape[0], 3 * num_views, resolution, resolution)
-    xs_pred = xs_pred.clamp(0, 1)  # Clamp to [-1, 1]
+    xs_pred = torch.cat(xs_pred_ls, dim=1)
+    assert xs_pred.shape == (latent.shape[0], cpv * num_views, resolution, resolution)
+    xs_pred = xs_pred.clamp(0, 1)
     return xs_pred
 
 
@@ -71,6 +74,7 @@ def render_img_cm(
     normalizer: LinearNormalizer,
     num_views: int = 1,
     batch_size: int = 50,
+    channels_per_view: int = 3,
 ) -> torch.Tensor:
     """Render an image conditioned on the latent state.
 
@@ -81,15 +85,16 @@ def render_img_cm(
         normalizer: The normalizer to use for rendering.
         num_views: The number of views to render.
         batch_size: The batch size for rendering.
+        channels_per_view: Number of channels per observation view.
 
     Returns:
-        torch.Tensor: The rendered image in shape of (B, 3, resolution, resolution)
+        torch.Tensor: The rendered image in shape of (B, C, resolution, resolution)
     """
+    cpv = channels_per_view
     assert latent.ndim in [2, 4], "Latent state must have shape (B, D) or (B, C, H, W)"
 
-    xs_pred = torch.randn(latent.shape[0], 3 * num_views, resolution, resolution)
+    xs_pred = torch.randn(latent.shape[0], cpv * num_views, resolution, resolution)
     xs_pred = xs_pred.to(device=algo.device, dtype=algo.dtype)
-    curr_obs_key = algo.obs_keys[0]
     if hasattr(algo, "dec_infer_steps"):
         dec_infer_steps = algo.dec_infer_steps
     else:
@@ -113,17 +118,15 @@ def render_img_cm(
                 external_cond=latent[j : j + batch_size],
             )
 
-            curr_obs_key = algo.obs_keys[0]
-
     # unnormalize xs and xs_pred and reorgnize them along B axis
     xs_pred_ls = []
     for c_i in range(num_views):
-        curr_xs_pred = xs_pred[:, 3 * c_i : 3 * c_i + 3]
+        curr_xs_pred = xs_pred[:, cpv * c_i : cpv * (c_i + 1)]
         curr_obs_key = algo.obs_keys[c_i]
         xs_pred_ls.append(normalizer[curr_obs_key].unnormalize(curr_xs_pred))
-    xs_pred = torch.cat(xs_pred_ls, dim=1)  # (T, B * V, 3, H, W)
-    assert xs_pred.shape == (latent.shape[0], 3 * num_views, resolution, resolution)
-    xs_pred = xs_pred.clamp(0, 1)  # Clamp to [-1, 1]
+    xs_pred = torch.cat(xs_pred_ls, dim=1)
+    assert xs_pred.shape == (latent.shape[0], cpv * num_views, resolution, resolution)
+    xs_pred = xs_pred.clamp(0, 1)
     return xs_pred
 
 
@@ -135,6 +138,7 @@ def render_img_cm_mv(
     normalizer: LinearNormalizer,
     num_views: int = 1,
     batch_size: int = 50,
+    channels_per_view: int = 3,
 ) -> torch.Tensor:
     """Render an image conditioned on the latent state.
 
@@ -145,18 +149,21 @@ def render_img_cm_mv(
         normalizer: The normalizer to use for rendering.
         num_views: The number of views to render.
         batch_size: The batch size for rendering.
+        channels_per_view: Number of channels per observation view.
 
     Returns:
-        torch.Tensor: The rendered image in shape of (B, 3, resolution, resolution)
+        torch.Tensor: The rendered image in shape of (B, C, resolution, resolution)
     """
+    cpv = channels_per_view
     assert latent.ndim in [2, 4], "Latent state must have shape (B, D) or (B, C, H, W)"
 
-    xs_pred = torch.randn(latent.shape[0], 3 * num_views, resolution, resolution)
+    xs_pred = torch.randn(latent.shape[0], cpv * num_views, resolution, resolution)
     xs_pred = xs_pred.to(device=algo.device, dtype=algo.dtype)
     if hasattr(algo, "dec_infer_steps"):
         dec_infer_steps = algo.dec_infer_steps
     else:
         dec_infer_steps = 1
+    latent_cpv = latent.shape[1] // num_views  # latent channels per view
     for j in range(0, xs_pred.shape[0], batch_size):
         schedules = np.linspace(algo.timesteps - 1, 0, dec_infer_steps + 1)
         actual_batch_size = xs_pred[j : j + batch_size].shape[0]
@@ -169,14 +176,14 @@ def render_img_cm_mv(
             s = s.long()
 
             for v_i in range(num_views):
-                xs_pred[j : j + batch_size, v_i * 3 : (v_i + 1) * 3] = (
+                xs_pred[j : j + batch_size, v_i * cpv : (v_i + 1) * cpv] = (
                     algo._forward(  # noqa
                         getattr(algo, f"decoder_{v_i}"),
-                        xs_pred[j : j + batch_size, v_i * 3 : (v_i + 1) * 3],
+                        xs_pred[j : j + batch_size, v_i * cpv : (v_i + 1) * cpv],
                         t,
                         s,
                         external_cond=latent[
-                            j : j + batch_size, v_i * 4 : (v_i + 1) * 4
+                            j : j + batch_size, v_i * latent_cpv : (v_i + 1) * latent_cpv
                         ],
                     )
                 )
@@ -184,12 +191,12 @@ def render_img_cm_mv(
     # unnormalize xs and xs_pred and reorgnize them along B axis
     xs_pred_ls = []
     for c_i in range(num_views):
-        curr_xs_pred = xs_pred[:, 3 * c_i : 3 * c_i + 3]
+        curr_xs_pred = xs_pred[:, cpv * c_i : cpv * (c_i + 1)]
         curr_obs_key = algo.obs_keys[c_i]
         xs_pred_ls.append(normalizer[curr_obs_key].unnormalize(curr_xs_pred))
-    xs_pred = torch.cat(xs_pred_ls, dim=1)  # (T, B * V, 3, H, W)
-    assert xs_pred.shape == (latent.shape[0], 3 * num_views, resolution, resolution)
-    xs_pred = xs_pred.clamp(0, 1)  # Clamp to [-1, 1]
+    xs_pred = torch.cat(xs_pred_ls, dim=1)
+    assert xs_pred.shape == (latent.shape[0], cpv * num_views, resolution, resolution)
+    xs_pred = xs_pred.clamp(0, 1)
     return xs_pred
 
 
@@ -201,6 +208,7 @@ def render_img_flow(
     normalizer: LinearNormalizer,
     num_views: int = 1,
     steps: int = 1,
+    channels_per_view: int = 3,
 ) -> torch.Tensor:
     """Render an image conditioned on the latent state.
 
@@ -211,13 +219,15 @@ def render_img_flow(
         normalizer: The normalizer to use for rendering.
         num_views: The number of views to render.
         steps: The number of diffusion steps.
+        channels_per_view: Number of channels per observation view.
 
     Returns:
-        torch.Tensor: The rendered image in shape of (B, 3, resolution, resolution)
+        torch.Tensor: The rendered image in shape of (B, C, resolution, resolution)
     """
+    cpv = channels_per_view
     assert latent.ndim in [2, 4], "Latent state must have shape (B, D) or (B, C, H, W)"
 
-    xs_pred = torch.randn(latent.shape[0], 3 * num_views, resolution, resolution)
+    xs_pred = torch.randn(latent.shape[0], cpv * num_views, resolution, resolution)
     xs_pred = xs_pred.to(device=algo.device, dtype=algo.dtype)
     batch_size = 50
     schedules = torch.linspace(0, 1.0, steps + 1)
@@ -242,12 +252,12 @@ def render_img_flow(
     # unnormalize xs and xs_pred and reorgnize them along B axis
     xs_pred_ls = []
     for c_i in range(num_views):
-        curr_xs_pred = xs_pred[:, 3 * c_i : 3 * c_i + 3]
+        curr_xs_pred = xs_pred[:, cpv * c_i : cpv * (c_i + 1)]
         curr_obs_key = algo.obs_keys[c_i]
         xs_pred_ls.append(normalizer[curr_obs_key].unnormalize(curr_xs_pred))
-    xs_pred = torch.cat(xs_pred_ls, dim=1)  # (T, B * V, 3, H, W)
-    assert xs_pred.shape == (latent.shape[0], 3 * num_views, resolution, resolution)
-    xs_pred = xs_pred.clamp(0, 1)  # Clamp to [-1, 1]
+    xs_pred = torch.cat(xs_pred_ls, dim=1)
+    assert xs_pred.shape == (latent.shape[0], cpv * num_views, resolution, resolution)
+    xs_pred = xs_pred.clamp(0, 1)
     return xs_pred
 
 
@@ -257,6 +267,7 @@ def predict_future_frames(
     batch: dict,
     n_frames: int,
     vis: bool = False,
+    channels_per_view: int = 3,
 ) -> torch.Tensor:
     """Predict future frames for Diffusion Forcing."""
     obs_ls = [algo.normalizer[k].normalize(batch["obs"][k]) for k in algo.obs_keys]
@@ -386,12 +397,13 @@ def predict_future_frames(
         pbar.update(horizon)
 
     # unnormalize xs and xs_pred and reorgnize them along B axis
+    cpv = channels_per_view
     xs_pred_ls = []
     for c_i in range(len(algo.obs_keys)):
-        curr_xs_pred = xs_pred[:, :, 3 * c_i : 3 * c_i + 3]
+        curr_xs_pred = xs_pred[:, :, cpv * c_i : cpv * (c_i + 1)]
         curr_obs_key = algo.obs_keys[c_i]
         xs_pred_ls.append(algo.normalizer[curr_obs_key].unnormalize(curr_xs_pred))
-    xs_pred = torch.cat(xs_pred_ls, dim=1)  # (T, B * V, 3, H, W)
+    xs_pred = torch.cat(xs_pred_ls, dim=1)
 
     xs_pred = rearrange(
         xs_pred, "t b (fs c) h w -> b (t fs) c h w", fs=algo.frame_stack

@@ -13,6 +13,7 @@ seed: 42
 skip_idx: 4
 use_cache: true
 resolution: 128
+channels_per_obs: 3
 obs_keys: [top_pov]
 low_dim_keys: []
 goal_sample: intermediate

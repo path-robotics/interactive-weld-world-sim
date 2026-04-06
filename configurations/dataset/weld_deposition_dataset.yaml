@@ -1,0 +1,37 @@
+defaults:
+  - base_dataset
+
+dataset_dir: data/weld_deposition
+horizon: 4
+val_horizon: 8
+n_frames: ${dataset.horizon}
+observation_shape: [1, "${dataset.resolution}", "${dataset.resolution}"]
+context_length: 2
+frame_skip: ${dataset.skip_frame}
+aug_mode: none
+skip_frame: 1
+pad_after: 2
+pad_before: 1
+seed: 42
+val_ratio: 0.1
+skip_idx: 1
+use_cache: true
+resolution: 128
+channels_per_obs: 1
+obs_keys: [cross_section_sdf]
+low_dim_keys: []
+delta_action: false
+goal_sample: intermediate
+action_mode: weld_deposition
+load_mask: false
+shape_meta:
+  action:
+    shape:
+    - 5
+  obs:
+    cross_section_sdf:
+      shape:
+      - 1   # C
+      - 128 # H
+      - 128 # W
+      type: sdf

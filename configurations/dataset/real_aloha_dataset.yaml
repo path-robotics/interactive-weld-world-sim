@@ -18,6 +18,7 @@ val_ratio: 0.1
 skip_idx: 1
 use_cache: true
 resolution: 128
+channels_per_obs: 3
 obs_keys: [camera_0_color, camera_1_color]
 low_dim_keys: []
 delta_action: false

@@ -78,6 +78,8 @@ class LatentWorldModel(BasePytorchAlgo):
         self.robust_latent = cfg.robust_latent if "robust_latent" in cfg else False
 
     def _build_model(self) -> None:
+        self.channels_per_view = self.cfg.x_shape[0] // self.num_views
+
         # decoder
         self.decoder: CMDecoder = CMDecoder(
             self.cfg.x_shape,
@@ -407,7 +409,9 @@ class LatentWorldModel(BasePytorchAlgo):
         # render images
         if self.val_render:
             xs_pred = render_img_cm(
-                self, z_seq, xs.shape[-1], self.normalizer, num_views=self.num_views
+                self, z_seq, xs.shape[-1], self.normalizer,
+                num_views=self.num_views,
+                channels_per_view=self.channels_per_view,
             )
             xs_pred = rearrange(xs_pred, "(b t) c h w -> t b c h w", b=obs.shape[0])
             xs = torch.cat([batch["obs"][k] for k in self.obs_keys], dim=2)
