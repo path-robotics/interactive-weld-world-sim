@@ -78,7 +78,7 @@ class LatentWorldModel(BasePytorchAlgo):
         self.robust_latent = cfg.robust_latent if "robust_latent" in cfg else False
 
     def _build_model(self) -> None:
-        self.channels_per_view = self.cfg.x_shape[0] // self.num_views
+        self.channels_per_view = self.cfg.x_shape[0] // self.cfg.num_views
 
         # decoder
         self.decoder: CMDecoder = CMDecoder(
