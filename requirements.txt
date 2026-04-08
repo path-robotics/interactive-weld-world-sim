@@ -73,7 +73,7 @@ torchcodec==0.4.0
 torchmetrics[image]==1.0.3
 torchvision==0.22.1+cu126
 tqdm-loggable==0.2
-transformers==4.57.3
+transformers==5.0.0rc3
 transforms3d==0.4.2
 trimesh==4.2.0
 tyro==1.0.3
