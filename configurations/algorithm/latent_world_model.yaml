@@ -35,7 +35,7 @@ uncertainty_scale: 1.0
 guidance_scale: 1.0
 n_frames: ${dataset.horizon}
 dyn_infer_steps: 1
-dec_infer_steps: 3
+dec_infer_steps: 20
 last_frame_loss_only: False
 prev_frame_noise_scale: 0.1
 robust_latent: False
