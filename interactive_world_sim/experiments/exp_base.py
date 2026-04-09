@@ -187,10 +187,17 @@ class BaseLightningExperiment(BaseExperiment):
         if self.cfg.training.compile:
             self.algo = torch.compile(self.algo)
 
+        is_ray = self.root_cfg.get("_ray_worker", False)
+
         callbacks = []
         if self.logger:
             callbacks.append(LearningRateMonitor("step", True))
-        if "checkpointing" in self.cfg.training:
+
+        if is_ray:
+            from ray.train.lightning import RayTrainReportCallback
+
+            callbacks.append(RayTrainReportCallback())
+        elif "checkpointing" in self.cfg.training:
             callbacks.append(
                 ModelCheckpoint(
                     pathlib.Path(
@@ -203,16 +210,33 @@ class BaseLightningExperiment(BaseExperiment):
                 )
             )
 
-        trainer = pl.Trainer(
-            accelerator="auto",
-            logger=self.logger if self.logger else False,
-            devices=self.cfg.num_devices,
-            num_nodes=self.cfg.num_nodes,
-            strategy=(
+        if is_ray:
+            from ray.train.lightning import (
+                RayDDPStrategy,
+                RayLightningEnvironment,
+            )
+
+            strategy = RayDDPStrategy(find_unused_parameters=True)
+            plugins = [RayLightningEnvironment()]
+            devices = "auto"
+            num_nodes = 1
+        else:
+            strategy = (
                 DDPStrategy(find_unused_parameters=True)
                 if torch.cuda.device_count() > 1
                 else "auto"
-            ),
+            )
+            plugins = []
+            devices = self.cfg.num_devices
+            num_nodes = self.cfg.num_nodes
+
+        trainer = pl.Trainer(
+            accelerator="auto",
+            logger=self.logger if self.logger else False,
+            devices=devices,
+            num_nodes=num_nodes,
+            strategy=strategy,
+            plugins=plugins if plugins else None,
             callbacks=callbacks,
             gradient_clip_val=self.cfg.training.optim.gradient_clip_val,
             val_check_interval=self.cfg.validation.val_every_n_step,
@@ -227,6 +251,11 @@ class BaseLightningExperiment(BaseExperiment):
             max_time=self.cfg.training.max_time,
             log_every_n_steps=self.cfg.training.log_every_n_steps,
         )
+
+        if is_ray:
+            from ray.train.lightning import prepare_trainer
+
+            trainer = prepare_trainer(trainer)
 
         train_dataloader = self._build_training_loader()
         val_dataloader = self._build_validation_loader()

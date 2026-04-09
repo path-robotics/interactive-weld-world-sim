@@ -26,6 +26,7 @@ class CMDecoder(nn.Module):
 
     def _build_model(self) -> None:
         use_scale_shift_norm = getattr(self.cfg, "use_scale_shift_norm", False)
+        use_checkpoint = getattr(self.cfg, "use_checkpoint", False)
         self.model = CMControlledUnetModel(
             in_channels=self.x_shape[0],
             model_channels=self.cfg.model_channels,
@@ -39,6 +40,7 @@ class CMDecoder(nn.Module):
             num_head_channels=self.cfg.num_head_channels,
             resblock_updown=self.cfg.resblock_updown,
             use_scale_shift_norm=use_scale_shift_norm,
+            use_checkpoint=use_checkpoint,
             dtype=self.dtype,
         )
         self.control_net = CMControlNet(
@@ -54,6 +56,7 @@ class CMDecoder(nn.Module):
             num_head_channels=self.cfg.num_head_channels,
             resblock_updown=self.cfg.resblock_updown,
             use_scale_shift_norm=use_scale_shift_norm,
+            use_checkpoint=use_checkpoint,
             num_cond_upsamples=self.cfg.num_latent_downsample,
             num_cond_channel=(
                 self.cfg.num_latent_channel

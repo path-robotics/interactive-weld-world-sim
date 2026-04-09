@@ -104,6 +104,7 @@ diffusion:
   num_components: ${algorithm.num_components}
   image_size: ${dataset.resolution}
   stabilization_level: 15
+  use_checkpoint: false
 
 metrics:
   - fvd

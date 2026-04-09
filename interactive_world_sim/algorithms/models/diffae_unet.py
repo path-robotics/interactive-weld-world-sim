@@ -364,6 +364,15 @@ class ResBlock(TimestepBlock):
         :param emb: an [N x emb_channels] Tensor of timestep embeddings.
         :return: an [N x C x ...] Tensor of outputs.
         """
+        if self.use_checkpoint:
+            return th.utils.checkpoint.checkpoint(
+                self._forward_impl, x, emb, cond, use_reentrant=False
+            )
+        return self._forward_impl(x, emb, cond)
+
+    def _forward_impl(
+        self, x: th.Tensor, emb: th.Tensor, cond: Optional[th.Tensor] = None
+    ) -> th.Tensor:
         if self.updown:
             in_rest, in_conv = self.in_layers[:-1], self.in_layers[-1]
             h = in_rest(x)
@@ -434,6 +443,15 @@ class AttentionBlock(nn.Module):
         self, x: th.Tensor, encoder_out: Optional[th.Tensor] = None
     ) -> th.Tensor:
         """Forward pass of the module."""
+        if self.use_checkpoint:
+            return th.utils.checkpoint.checkpoint(
+                self._forward_impl, x, encoder_out, use_reentrant=False
+            )
+        return self._forward_impl(x, encoder_out)
+
+    def _forward_impl(
+        self, x: th.Tensor, encoder_out: Optional[th.Tensor] = None
+    ) -> th.Tensor:
         b, c, *spatial = x.shape
         qkv = self.qkv(self.norm(x).view(b, c, -1))
         if encoder_out is not None:

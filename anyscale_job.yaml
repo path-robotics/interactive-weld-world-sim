@@ -1,0 +1,22 @@
+name: weld-ae-cloud
+containerfile: Dockerfile.anyscale
+cloud: epsilon-anyscale-cloud
+compute_config: weld-training-4xA10G
+working_dir: .
+excludes:
+  - data
+  - outputs
+  - .venv
+  - external
+  - slurm_logs
+  - __pycache__
+  - "*.egg-info"
+entrypoint: >-
+  python main.py +name=weld_ae_cloud cluster=anyscale
+  dataset=weld_deposition_dataset
+  dataset.dataset_dir=/mnt/shared_storage/interactive-wwm-training-set
+  algorithm.training_stage=1 algorithm.action_dim=5
+  experiment.training.precision=bf16-mixed
+  experiment.training.batch_size=10
+  experiment.training.lr=1.28e-4
+  algorithm.diffusion.use_checkpoint=true

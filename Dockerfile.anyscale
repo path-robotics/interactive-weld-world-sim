@@ -1,0 +1,34 @@
+FROM anyscale/ray:2.47.0-py311-cu125
+
+# Install libGL (needed by opencv-python if it ends up on the path)
+RUN sudo apt-get update && \
+    sudo apt-get install -y --no-install-recommends libgl1-mesa-glx libglib2.0-0 && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+# Remove any pre-installed opencv-python from the base image
+RUN pip uninstall -y opencv-python opencv-contrib-python 2>/dev/null; true
+
+# Install all deps from frozen versions matching the working local venv.
+# Split into two RUN steps: first all pip packages, then git-based packages
+# with --no-deps (imgaug pulls opencv-python otherwise; we use headless).
+RUN pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cu126/ \
+    torch==2.7.1+cu126 torchvision==0.22.1+cu126 \
+    lightning==2.6.0 pytorch-lightning==2.6.1 \
+    "torchmetrics==1.0.3" diffusers==0.29.2 transformers==4.57.3 \
+    accelerate==1.4.0 einops==0.8.0 timm==0.9.7 \
+    safetensors==0.7.0 tokenizers==0.22.2 \
+    h5py==3.16.0 zarr==2.12.0 numcodecs==0.11.0 \
+    numpy==1.26.4 scipy==1.14.1 imagecodecs==2025.3.30 filelock==3.25.2 \
+    hydra-core==1.3.2 omegaconf==2.3.0 wandb==0.18.0 wandb-osh==1.2.2 \
+    tensorboard==2.19.0 tqdm==4.66.5 \
+    matplotlib==3.8.2 opencv-python-headless==4.10.0.84 \
+    moviepy==1.0.3 imageio-ffmpeg==0.6.0 \
+    scikit-image==0.26.0 numba==0.65.0 llvmlite==0.47.0 \
+    shapely==2.1.2 imagecorruptions-imaug==1.1.3 \
+    rotary-embedding-torch==0.8.6 transforms3d==0.4.2 colorama==0.4.6 \
+    lpips==0.1.4 torch-fidelity==0.3.0 pillow==11.3.0
+
+RUN pip install --no-cache-dir --no-deps \
+    "git+https://github.com/WangYixuan12/yixuan_utilities.git" \
+    "git+https://github.com/erjel/imgaug.git@test"

@@ -1,0 +1,22 @@
+type: anyscale
+is_compute_node_offline: false
+
+# Ray Train scaling — each worker gets 1 GPU
+num_workers: 4
+use_gpu: true
+
+# Shared storage for dataset
+dataset_dir: /mnt/shared_storage/interactive-wwm-training-set
+
+# Storage for Ray Train checkpoints and results
+storage_path: /mnt/shared_storage/interactive-weld-world-sim
+
+# AWS instance recommendations:
+#   p5.48xlarge  — 8x H100 80GB, ~$27.44/hr (US regions)
+#   g5.12xlarge  — 4x A10G 24GB, ~$5.67/hr (requires bf16 + gradient checkpointing)
+#
+# With bf16-mixed + use_checkpoint=true, VRAM drops to ~20GB/GPU,
+# enabling the much cheaper g5 instances.
+#
+# Spot instances: set via Anyscale compute config for 60-70% savings.
+# Ray Train auto-restarts from checkpoint on preemption (failure_config.max_failures=3).

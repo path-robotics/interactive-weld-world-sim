@@ -1,0 +1,11 @@
+cloud: epsilon-anyscale-cloud
+
+head_node:
+  instance_type: m5.2xlarge
+
+worker_nodes:
+  - instance_type: g5.12xlarge
+    min_nodes: 1
+    max_nodes: 1
+    market_type: ON_DEMAND
+    name: gpu-worker-4x-a10g

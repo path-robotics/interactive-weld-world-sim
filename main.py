@@ -112,6 +112,25 @@ def run_local(cfg: DictConfig) -> None:
         experiment.exec_task(task)
 
 
+def run_anyscale(cfg: DictConfig) -> None:
+    from interactive_world_sim.utils.ray_utils import submit_anyscale_job
+
+    # Set _name keys from Hydra choices (same as run_local lines 34-48).
+    hydra_cfg = hydra.core.hydra_config.HydraConfig.get()
+    cfg_choice = OmegaConf.to_container(hydra_cfg.runtime.choices)
+    with open_dict(cfg):
+        if cfg_choice["experiment"] is not None:
+            cfg.experiment._name = cfg_choice["experiment"]
+        if cfg_choice["dataset"] is not None:
+            cfg.dataset._name = cfg_choice["dataset"]
+        if cfg_choice["algorithm"] is not None:
+            cfg.algorithm._name = cfg_choice["algorithm"]
+
+    print(cyan("Anyscale cluster detected, submitting Ray Train job..."))
+    result = submit_anyscale_job(cfg)
+    print(cyan("Ray Train completed."), f"Results: {result}")
+
+
 def run_slurm(cfg: DictConfig) -> None:
     python_args = " ".join(sys.argv[1:]) + " +_on_compute_node=True"
     project_root = Path.cwd()
@@ -217,12 +236,15 @@ def run(cfg: DictConfig) -> None:
         download_latest_checkpoint(run_path, Path("outputs/downloaded"))
 
     if "cluster" in cfg and "_on_compute_node" not in cfg:
-        print(
-            cyan(
-                "Slurm detected, submitting to compute node instead of running locally..."
+        if cfg.cluster.get("type") == "anyscale":
+            run_anyscale(cfg)
+        else:
+            print(
+                cyan(
+                    "Slurm detected, submitting to compute node instead of running locally..."
+                )
             )
-        )
-        run_slurm(cfg)
+            run_slurm(cfg)
     else:
         run_local(cfg)
 

@@ -103,6 +103,98 @@ python main.py +name=weld_dec \
     algorithm.load_ae=outputs/weld_dyn/checkpoints/best.ckpt
 ```
 
+## Memory Optimization
+
+Two options to reduce GPU VRAM usage (can be combined):
+
+**Mixed precision** (bf16 — recommended on H100/A100):
+```bash
+python main.py +name=weld_ae \
+    dataset=weld_deposition_dataset \
+    algorithm.training_stage=1 \
+    algorithm.action_dim=5 \
+    experiment.training.precision=bf16-mixed
+```
+
+**Gradient checkpointing** (trades ~20-30% speed for ~40-60% VRAM reduction):
+```bash
+python main.py +name=weld_ae \
+    dataset=weld_deposition_dataset \
+    algorithm.training_stage=1 \
+    algorithm.action_dim=5 \
+    algorithm.diffusion.use_checkpoint=true
+```
+
+| Config | Est. VRAM |
+|--------|-----------|
+| Default (fp32, no checkpointing) | ~48GB |
+| bf16-mixed only | ~28-32GB |
+| bf16-mixed + gradient checkpointing | ~18-22GB |
+
+## Cloud Training (Anyscale)
+
+Requires an Anyscale account with AWS compute configured and the Anyscale CLI:
+```bash
+uv pip install anyscale "ray[train]>=2.9.0"
+```
+
+### W&B API Key Setup
+
+Store your W&B API key locally (never commit it):
+```bash
+mkdir -p ~/.wandb
+echo "WANDB_API_KEY=your_key_here" > ~/.wandb/keys
+```
+
+The submit script reads this file and passes it securely as an env var at job submission time.
+
+### Submitting a Job
+
+```bash
+bash scripts/submit_anyscale_job.sh
+```
+
+This reads `anyscale_job.yaml` for the job config and `~/.wandb/keys` for the API key. The job config can be edited to change training parameters (batch size, learning rate, etc.) in the `entrypoint` field.
+
+To pass extra flags to `anyscale job submit`:
+```bash
+bash scripts/submit_anyscale_job.sh --name my-custom-job-name
+```
+
+### Configuration
+
+- **`anyscale_job.yaml`** — job config (entrypoint, image, compute config, env vars)
+- **`Dockerfile.anyscale`** — custom image with all deps baked in (built automatically on first submit, cached after)
+- **`compute_config.yaml`** — GPU instance selection (default: g5.12xlarge with 4x A10G 24GB)
+- **`configurations/cluster/anyscale.yaml`** — Ray Train scaling config (num_workers, storage path)
+
+### Key Overrides
+
+Training parameters are set in the `entrypoint` field of `anyscale_job.yaml`:
+- `cluster=anyscale` — activates Ray Train dispatch
+- `experiment.training.batch_size=N` — per-GPU batch size
+- `experiment.training.lr=X` — learning rate (scale with batch size)
+- `experiment.training.precision=bf16-mixed` — half-precision training
+- `algorithm.diffusion.use_checkpoint=true` — gradient checkpointing
+- `dataset.dataset_dir=...` — path to data on shared mount
+
+### Data
+
+Training data is on the epsilon-anyscale-cloud cluster at `/mnt/shared_storage/interactive-wwm-training-set`.
+
+### Compute
+
+Default compute config (`compute_config.yaml`): g5.12xlarge (4x A10G 24GB, single node).
+To change, edit `compute_config.yaml` and recreate:
+```bash
+anyscale compute-config create -n weld-training-4xA10G -f compute_config.yaml
+```
+
+Recommended instances:
+- **g5.12xlarge** (4x A10G 24GB) — good value, works with bf16 + gradient checkpointing
+- **g6e.12xlarge** (4x L40S 48GB) — more VRAM headroom for larger batch sizes
+- **p4d.24xlarge** (8x A100 40GB) — maximum throughput
+
 ## Data Format
 
 Each episode is an HDF5 file with:
