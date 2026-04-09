@@ -12,7 +12,7 @@ excludes:
   - __pycache__
   - "*.egg-info"
 entrypoint: >-
-  python main.py +name=weld_ae_cloud cluster=anyscale
+  python main.py +name=weld_ae_cloud_v2 cluster=anyscale
   dataset=weld_deposition_dataset
   dataset.dataset_dir=/mnt/shared_storage/interactive-wwm-training-set
   algorithm.training_stage=1 algorithm.action_dim=5

@@ -20,5 +20,5 @@ fi
 
 anyscale job submit \
     -f anyscale_job.yaml \
-    --env-var "WANDB_API_KEY=${WANDB_API_KEY}" \
+    --env "WANDB_API_KEY=${WANDB_API_KEY}" \
     "$@"
