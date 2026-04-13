@@ -4,9 +4,11 @@ Adopted from https://github.com/cvpr2022-stylegan-v/stylegan-v
 Verified to be the same as tf version by https://github.com/universome/fvd-comparison
 """
 
+import fcntl
 import html
 import io
 import re
+import tempfile
 import urllib
 import urllib.request
 from pathlib import Path
@@ -139,25 +141,33 @@ class FrechetVideoDistance(nn.Module):
         # Return raw features before the softmax layer.
         self.detector_kwargs = dict(rescale=False, resize=True, return_features=True)
 
-        # Check if model is cached
+        # Check if model is cached, using a file lock to prevent race
+        # conditions when multiple workers initialize simultaneously.
         cached_model_path = get_cached_model_path("i3d_torchscript.pt")
+        lock_path = cached_model_path.with_suffix(".lock")
 
-        if cached_model_path.exists():
-            # Load from cache
-            self.detector = torch.jit.load(str(cached_model_path)).eval()
-        else:
-            # Download and cache the model
-            print("Downloading I3D detector model...")
-            with open_url(detector_url, verbose=False) as f:
-                model_data = f.read()
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            if not cached_model_path.exists():
+                print("Downloading I3D detector model...")
+                with open_url(detector_url, verbose=False) as f:
+                    model_data = f.read()
 
-            # Save to cache
-            with open(cached_model_path, "wb") as cache_file:
-                cache_file.write(model_data)
+                # Write to a temp file then atomically rename to avoid
+                # other workers reading a partially-written file.
+                tmp_fd, tmp_path = tempfile.mkstemp(
+                    dir=cached_model_path.parent
+                )
+                try:
+                    with open(tmp_fd, "wb") as tmp_file:
+                        tmp_file.write(model_data)
+                    Path(tmp_path).rename(cached_model_path)
+                except BaseException:
+                    Path(tmp_path).unlink(missing_ok=True)
+                    raise
+                print(f"Model cached at: {cached_model_path}")
 
-            # Load from the saved file
-            self.detector = torch.jit.load(str(cached_model_path)).eval()
-            print(f"Model cached at: {cached_model_path}")
+        self.detector = torch.jit.load(str(cached_model_path)).eval()
 
     @torch.no_grad()
     def compute(self, videos_fake: torch.Tensor, videos_real: torch.Tensor) -> float:

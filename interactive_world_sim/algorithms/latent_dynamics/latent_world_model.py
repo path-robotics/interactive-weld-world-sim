@@ -111,14 +111,26 @@ class LatentWorldModel(BasePytorchAlgo):
 
         # load previous trained model
         if self.load_ae is not None:
-            cfg_cp = self.cfg.copy()
-            load_ae_dir = os.path.dirname(os.path.dirname(self.load_ae))
-            cfg_path = f"{load_ae_dir}/.hydra/config.yaml"
-            cfg_cp = OmegaConf.load(cfg_path)
-            cfg_cp.load_ae = None
+            # Search parent directories for the Hydra config saved alongside
+            # the checkpoint.  Local runs store it two levels up
+            # (outputs/run/.hydra/), while Ray Train checkpoints may place it
+            # three levels up (run/TorchTrainer_…/checkpoint_N/ckpt).
+            ae_cfg = None
+            search_dir = os.path.dirname(self.load_ae)
+            for _ in range(4):
+                search_dir = os.path.dirname(search_dir)
+                cfg_path = os.path.join(search_dir, ".hydra", "config.yaml")
+                if os.path.exists(cfg_path):
+                    ae_cfg = OmegaConf.load(cfg_path).algorithm
+                    break
+            if ae_cfg is None:
+                # Hydra config not found; fall back to current run config.
+                ae_cfg = self.cfg.copy()
+            ae_cfg.load_ae = None
+            ae_cfg.training_stage = 1
             diffae = LatentWorldModel.load_from_checkpoint(
                 self.load_ae,
-                cfg=cfg_cp.algorithm,
+                cfg=ae_cfg,
                 map_location=self.device,
                 weights_only=False,
             )
