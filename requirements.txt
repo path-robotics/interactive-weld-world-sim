@@ -50,7 +50,7 @@ pygame==2.6.1
 pymunk==6.10.0
 pynput==1.6.0
 pyrealsense2==2.55.1.6486
-pytest==9.0.2
+pytest==9.0.3
 pytools==2025.2.5
 pyzmq==26.2.0
 regex==2024.11.6
