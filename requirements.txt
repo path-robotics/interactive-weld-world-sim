@@ -68,7 +68,7 @@ tensorrt-dispatch-cu12==10.9.0.34
 tensorrt-lean-cu12==10.9.0.34
 termcolor==3.3.0
 timm==0.9.7
-torch==2.7.1+cu126
+torch==2.12.0
 torchcodec==0.4.0
 torchmetrics[image]==1.0.3
 torchvision==0.22.1+cu126
